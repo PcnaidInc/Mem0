@@ -3,108 +3,148 @@ name: ci
 on:
   push:
     branches: [main]
-    paths:
-      - 'mem0/**'
-      - 'tests/**'
-      - 'embedchain/**'
   pull_request:
-    paths:
-      - 'mem0/**'
-      - 'tests/**'
-      - 'embedchain/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  check_changes:
+  lint-python:
     runs-on: ubuntu-latest
-    outputs:
-      mem0_changed: ${{ steps.filter.outputs.mem0 }}
-      embedchain_changed: ${{ steps.filter.outputs.embedchain }}
     steps:
-    - uses: actions/checkout@v3
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          mem0:
-            - 'mem0/**'
-            - 'tests/**'
-          embedchain:
-            - 'embedchain/**'
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        with:
+          python-version: "3.11"
+      - name: Install poetry
+        uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a # v1.4.1
+        with:
+          version: 1.4.2
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - name: Install dependencies
+        run: make install
+      - name: Lint with ruff
+        run: make lint
+      - name: Check formatting
+        run: make format
+      - name: Check imports
+        run: make sort
 
-  build_mem0:
-    needs: check_changes
-    if: needs.check_changes.outputs.mem0_changed == 'true'
+  typecheck-ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.3.0
+        with:
+          node-version: "18"
+          cache: "pnpm"
+          cache-dependency-path: vercel-ai-sdk/pnpm-lock.yaml
+      - name: Install vercel-ai-sdk dependencies
+        working-directory: vercel-ai-sdk
+        run: pnpm install --frozen-lockfile
+      - name: Type-check vercel-ai-sdk
+        working-directory: vercel-ai-sdk
+        run: pnpm type-check
+
+  lint-ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.3.0
+        with:
+          node-version: "18"
+          cache: "pnpm"
+          cache-dependency-path: vercel-ai-sdk/pnpm-lock.yaml
+      - name: Install vercel-ai-sdk dependencies
+        working-directory: vercel-ai-sdk
+        run: pnpm install --frozen-lockfile
+      - name: Lint vercel-ai-sdk
+        working-directory: vercel-ai-sdk
+        run: pnpm lint
+      - name: Prettier check vercel-ai-sdk
+        working-directory: vercel-ai-sdk
+        run: pnpm prettier-check
+
+  build-ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.3.0
+        with:
+          node-version: "18"
+          cache: "pnpm"
+          cache-dependency-path: mem0-ts/pnpm-lock.yaml
+      - name: Install mem0-ts dependencies
+        working-directory: mem0-ts
+        run: pnpm install --frozen-lockfile
+      - name: Build mem0-ts
+        working-directory: mem0-ts
+        run: pnpm build
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.3.0
+        with:
+          node-version: "18"
+          cache: "pnpm"
+          cache-dependency-path: vercel-ai-sdk/pnpm-lock.yaml
+      - name: Install vercel-ai-sdk dependencies
+        working-directory: vercel-ai-sdk
+        run: pnpm install --frozen-lockfile
+      - name: Build vercel-ai-sdk
+        working-directory: vercel-ai-sdk
+        run: pnpm build
+
+  test-python:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10", "3.11"]
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install poetry
-        uses: snok/install-poetry@v1
+        uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a # v1.4.1
         with:
           version: 1.4.2
           virtualenvs-create: true
           virtualenvs-in-project: true
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-      - name: Install dependencies
+      - name: Install all dependencies
         run: make install_all
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      - name: Run Formatting
-        run: |
-          mkdir -p mem0/.ruff_cache && chmod -R 777 mem0/.ruff_cache
-          cd mem0 && poetry run ruff check . --select F
-      - name: Run tests and generate coverage report
+      - name: Run tests
         run: make test
 
-  build_embedchain:
-    needs: check_changes
-    if: needs.check_changes.outputs.embedchain_changed == 'true'
+  test-ts:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.9", "3.10", "3.11"]
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.3.0
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install poetry
-        uses: snok/install-poetry@v1
+          node-version: "18"
+          cache: "pnpm"
+          cache-dependency-path: mem0-ts/pnpm-lock.yaml
+      - name: Install mem0-ts dependencies
+        working-directory: mem0-ts
+        run: pnpm install --frozen-lockfile
+      - name: Test mem0-ts
+        working-directory: mem0-ts
+        run: pnpm test
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.3.0
         with:
-          version: 1.4.2
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-      - name: Install dependencies
-        run: cd embedchain && make install_all
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      - name: Run Formatting
-        run: |
-          mkdir -p embedchain/.ruff_cache && chmod -R 777 embedchain/.ruff_cache
-          cd embedchain && poetry run ruff check . --select F
-      - name: Lint with ruff
-        run: cd embedchain && make lint
-      - name: Run tests and generate coverage report
-        run: cd embedchain && make coverage
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: coverage.xml
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          node-version: "18"
+          cache: "pnpm"
+          cache-dependency-path: vercel-ai-sdk/pnpm-lock.yaml
+      - name: Install vercel-ai-sdk dependencies
+        working-directory: vercel-ai-sdk
+        run: pnpm install --frozen-lockfile
+      - name: Test vercel-ai-sdk
+        working-directory: vercel-ai-sdk
+        run: pnpm test

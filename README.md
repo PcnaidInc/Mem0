@@ -164,6 +164,13 @@ We now have a paper you can cite:
 }
 ```
 
+## CI
+
+The CI workflow runs on every pull request and on pushes to `main`. It checks:
+
+- **Python** (`mem0`): lint (ruff), format (ruff), import sort (isort), and tests (pytest) on Python 3.10 and 3.11
+- **TypeScript** (`mem0-ts`, `vercel-ai-sdk`): type-check (tsc), lint (eslint), format (prettier), build (tsup), and tests (jest)
+
 ## ⚖️ License
 
 Apache 2.0 — see the [LICENSE](LICENSE) file for details.
