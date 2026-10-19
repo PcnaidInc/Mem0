@@ -6,11 +6,18 @@ from pydantic import BaseModel
 
 try:
     from pinecone import Pinecone, PodSpec, ServerlessSpec
-    from pinecone.data.dataclasses.vector import Vector
 except ImportError:
     raise ImportError(
         "Pinecone requires extra dependencies. Install with `pip install pinecone pinecone-text`"
     ) from None
+
+try:
+    from pinecone.data.dataclasses.vector import Vector
+except ImportError:
+    try:
+        from pinecone.db_data.dataclasses.vector import Vector
+    except ImportError:
+        Vector = None
 
 from mem0.vector_stores.base import VectorStoreBase
 
@@ -165,7 +172,7 @@ class PineconeDB(VectorStoreBase):
         Returns:
             List[OutputData]: Parsed output data.
         """
-        if isinstance(data, Vector):
+        if Vector is not None and isinstance(data, Vector):
             result = OutputData(
                 id=data.id,
                 score=0.0,

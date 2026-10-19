@@ -81,7 +81,10 @@ def test_get_vector_found(pinecone_db):
     # or a list of dictionaries, not a dictionary with an 'id' field
     
     # Create a mock Vector object
-    from pinecone.data.dataclasses.vector import Vector
+    try:
+        from pinecone.data.dataclasses.vector import Vector
+    except ImportError:
+        from pinecone.db_data.dataclasses.vector import Vector
     mock_vector = Vector(
         id="id1",
         values=[0.1] * 128,

@@ -1142,7 +1142,8 @@ class AsyncMemory(MemoryBase):
             response = remove_code_blocks(response)
             new_retrieved_facts = json.loads(response)["facts"]
         except Exception as e:
-            logging.error(f"Error in new_retrieved_facts: {e}"); new_retrieved_facts = []
+            logging.error(f"Error in new_retrieved_facts: {e}")
+            new_retrieved_facts = []
 
         retrieved_old_memory = []
         new_message_embeddings = {}
@@ -1162,7 +1163,8 @@ class AsyncMemory(MemoryBase):
             retrieved_old_memory.extend(result_group)
         
         unique_data = {}
-        for item in retrieved_old_memory: unique_data[item["id"]] = item
+        for item in retrieved_old_memory:
+            unique_data[item["id"]] = item
         retrieved_old_memory = list(unique_data.values())
         logging.info(f"Total existing memories: {len(retrieved_old_memory)}")
         temp_uuid_mapping = {}
@@ -1180,13 +1182,15 @@ class AsyncMemory(MemoryBase):
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-            logging.error(f"Error in new memory actions response: {e}"); response = ""
+            logging.error(f"Error in new memory actions response: {e}")
+            response = ""
         
         try:
             response = remove_code_blocks(response)
             new_memories_with_actions = json.loads(response)
         except Exception as e:
-            logging.error(f"Invalid JSON response: {e}"); new_memories_with_actions = {}
+            logging.error(f"Invalid JSON response: {e}")
+            new_memories_with_actions = {}
 
         returned_memories = [] 
         try:
@@ -1195,7 +1199,8 @@ class AsyncMemory(MemoryBase):
                 logging.info(resp)
                 try:
                     action_text = resp.get("text")
-                    if not action_text: continue
+                    if not action_text:
+                        continue
                     event_type = resp.get("event")
 
                     if event_type == "ADD":

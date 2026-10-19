@@ -9,7 +9,7 @@ from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint impo
     Namespace,
 )
 from google.oauth2 import service_account
-from langchain.schema import Document
+from langchain_core.documents import Document
 from pydantic import BaseModel
 
 from mem0.configs.vector_stores.vertex_ai_vector_search import (
